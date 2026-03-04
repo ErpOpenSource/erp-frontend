@@ -4,6 +4,9 @@ import Login from '@/pages/Login'
 import Dashboard from '@/pages/Dashboard'
 import ERPShell from '@/core/components/layout/ERPShell'
 import ModulePage from '@/core/renderers/ModuleLoader/ModulePage'
+import ProfilePage  from '@/pages/settings/ProfilePage'
+import UsersPage    from '@/pages/settings/UsersPage'
+import SessionsPage from '@/pages/settings/SessionsPage'
 
 const rootRoute = createRootRoute()
 
@@ -46,7 +49,7 @@ const dashboardRoute = createRoute({
   component: Dashboard,
 })
 
-// ← Ahora DESPUÉS de shellRoute
+// ── Rutas de módulos genéricos (TableRenderer / FormRenderer) ─────────────────
 const moduleRoutes = [
   { moduleId: 'SALES',      viewId: 'orders',          path: '/sales/orders' },
   { moduleId: 'SALES',      viewId: 'customers',       path: '/sales/customers' },
@@ -57,9 +60,6 @@ const moduleRoutes = [
   { moduleId: 'INVENTORY',  viewId: 'warehouses',      path: '/inventory/warehouses' },
   { moduleId: 'PURCHASING', viewId: 'purchase-orders', path: '/purchasing/purchase-orders' },
   { moduleId: 'PURCHASING', viewId: 'suppliers',       path: '/purchasing/suppliers' },
-  { moduleId: 'SETTINGS',   viewId: 'profile',         path: '/settings/profile' },
-  { moduleId: 'SETTINGS',   viewId: 'users',           path: '/settings/users' },
-  { moduleId: 'SETTINGS',   viewId: 'sessions',        path: '/settings/sessions' },
 ].map(({ moduleId, viewId, path }) =>
   createRoute({
     getParentRoute: () => shellRoute,
@@ -68,13 +68,35 @@ const moduleRoutes = [
   })
 )
 
-// ← moduleRoutes incluido en el árbol
+// ── Rutas de Settings — páginas custom, no genéricas ──────────────────────────
+const settingsProfileRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/settings/profile',
+  component: ProfilePage,
+})
+
+const settingsUsersRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/settings/users',
+  component: UsersPage,
+})
+
+const settingsSessionsRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/settings/sessions',
+  component: SessionsPage,
+})
+
+// ── Árbol de rutas ────────────────────────────────────────────────────────────
 const routeTree = rootRoute.addChildren([
   indexRoute,
   loginRoute,
   shellRoute.addChildren([
     dashboardRoute,
     ...moduleRoutes,
+    settingsProfileRoute,
+    settingsUsersRoute,
+    settingsSessionsRoute,
   ]),
 ])
 
