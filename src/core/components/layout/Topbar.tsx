@@ -4,7 +4,7 @@ import { useAuthStore } from '@/store/auth.store'
 import { usePreferencesStore } from '@/store/preferences.store'
 import { useSearchStore } from '@/store/search.store'
 import { useTabsStore } from '@/store/tabs.store'
-import { mockSchemas } from './mockSchemas'
+import { useAllModuleSchemas } from '@/core/hooks/useModuleSchema'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -68,10 +68,9 @@ export default function Topbar({ onMenuClick }: Props) {
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .trim()
+      const { data: schemas = [] } = useAllModuleSchemas()
 
-  const allCandidates = useMemo<SearchCandidate[]>(
-    () => Object.values(mockSchemas)
-      .flatMap((schema) =>
+  const allCandidates = useMemo(() => schemas.flatMap((schema) =>
         schema.navItems
           .filter((item) => (item.permission ? hasPermission(item.permission) : true))
           .map((item) => ({

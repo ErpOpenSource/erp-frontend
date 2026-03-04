@@ -14,6 +14,7 @@ interface User {
 interface AuthState {
   accessToken: string | null
   refreshToken: string | null
+  accessTokenExpiresAt: number | null   // ← timestamp Unix en ms
   sessionId: string | null
   user: User | null
   isAuthenticated: boolean
@@ -38,6 +39,7 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       accessToken: null,
       refreshToken: null,
+      accessTokenExpiresAt: null,
       sessionId: null,
       user: null,
       isAuthenticated: false,
@@ -45,6 +47,8 @@ export const useAuthStore = create<AuthState>()(
       setAuth: (response) => set({
         accessToken: response.accessToken,
         refreshToken: response.refreshToken,
+        // ✅ Calculamos el timestamp exacto de expiración
+        accessTokenExpiresAt: Date.now() + response.accessTokenExpiresInSeconds * 1000,
         sessionId: response.sessionId,
         user: response.user,
         isAuthenticated: true,
@@ -53,12 +57,12 @@ export const useAuthStore = create<AuthState>()(
       logout: () => set({
         accessToken: null,
         refreshToken: null,
+        accessTokenExpiresAt: null,
         sessionId: null,
         user: null,
         isAuthenticated: false,
       }),
 
-      // "sales.order.create" → true/false
       hasPermission: (permission) => {
         const { user } = get()
         if (!user) return false
@@ -66,7 +70,6 @@ export const useAuthStore = create<AuthState>()(
         return user.permissions.includes(permission)
       },
 
-      // "SALES" → true/false
       hasModule: (module) => {
         const { user } = get()
         if (!user) return false
@@ -75,14 +78,13 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'erp-auth',
-      // Solo persistimos lo necesario, nunca el accessToken en producción
-      // pero de momento lo dejamos para desarrollo
       partialize: (state) => ({
-        accessToken: state.accessToken,
-        refreshToken: state.refreshToken,
-        sessionId: state.sessionId,
-        user: state.user,
-        isAuthenticated: state.isAuthenticated,
+        accessToken:          state.accessToken,
+        refreshToken:         state.refreshToken,
+        accessTokenExpiresAt: state.accessTokenExpiresAt,  // ← persiste el timestamp
+        sessionId:            state.sessionId,
+        user:                 state.user,
+        isAuthenticated:      state.isAuthenticated,
       }),
     }
   )

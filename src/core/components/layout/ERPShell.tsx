@@ -6,9 +6,10 @@ import Topbar from './Topbar'
 import TabBar from './TabBar'
 import { ChevronRight } from 'lucide-react'
 import { useRestoreState } from '@/core/hooks/useRestoreState'
+import { useTokenRefresh } from '@/core/hooks/useTokenRefresh'
 import UpdateBanner from '../UpdateBanner'
+import { router } from '@/router'
 
-// Hook para detectar tamaño de pantalla
 function useBreakpoint() {
   const [breakpoint, setBreakpoint] = useState<'mobile' | 'tablet' | 'desktop'>('desktop')
 
@@ -28,13 +29,14 @@ function useBreakpoint() {
 }
 
 export default function ERPShell() {
-      useRestoreState()
+  useRestoreState()
+  useTokenRefresh()   // ✅ refresco silencioso — nunca expira en medio de la sesión
+
   const breakpoint = useBreakpoint()
   const [activeModule, setActiveModule] = useState<string | null>('DASHBOARD')
   const [subNavOpen, setSubNavOpen] = useState(true)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
-  // En tablet el subnav empieza cerrado
   useEffect(() => {
     if (breakpoint === 'tablet') setSubNavOpen(false)
     if (breakpoint === 'desktop') setSubNavOpen(true)
@@ -47,58 +49,46 @@ export default function ERPShell() {
       setActiveModule(module)
       setSubNavOpen(true)
     }
-    // En móvil cerramos el drawer al seleccionar módulo
+
+    if (module === 'DASHBOARD') {
+      router.navigate({ to: '/dashboard' })
+    }
+
     if (breakpoint === 'mobile') setMobileSidebarOpen(false)
   }
 
   return (
- <div className="h-screen w-screen flex flex-col overflow-hidden bg-gray-50">
+    <div className="h-screen w-screen flex flex-col overflow-hidden bg-gray-50">
       <Topbar onMenuClick={() => setMobileSidebarOpen(true)} />
-      {/* TabBar — solo en tablet y desktop */}
+
       {breakpoint !== 'mobile' && <TabBar />}
 
-      {/* Cuerpo principal */}
       <div className="relative flex flex-1 overflow-hidden">
 
-        {/* ── MÓVIL: overlay drawer ── */}
         {breakpoint === 'mobile' && (
           <>
-            {/* Backdrop */}
             {mobileSidebarOpen && (
               <div
                 className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
                 onClick={() => setMobileSidebarOpen(false)}
               />
             )}
-
-            {/* Drawer */}
             <div className={`
               fixed inset-y-0 left-0 z-50 flex
               transition-transform duration-300 ease-in-out
               ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
             `}>
-              <ModuleSidebar
-                activeModule={activeModule}
-                onModuleChange={handleModuleChange}
-              />
+              <ModuleSidebar activeModule={activeModule} onModuleChange={handleModuleChange} />
               {activeModule && (
-                <SubNav
-                  module={activeModule}
-                  open={true}
-                  onToggle={() => setMobileSidebarOpen(false)}
-                />
+                <SubNav module={activeModule} open={true} onToggle={() => setMobileSidebarOpen(false)} />
               )}
             </div>
           </>
         )}
 
-        {/* ── TABLET y DESKTOP: layout fijo ── */}
         {breakpoint !== 'mobile' && (
           <>
-            <ModuleSidebar
-              activeModule={activeModule}
-              onModuleChange={handleModuleChange}
-            />
+            <ModuleSidebar activeModule={activeModule} onModuleChange={handleModuleChange} />
 
             {activeModule && (
               <SubNav
@@ -108,7 +98,6 @@ export default function ERPShell() {
               />
             )}
 
-            {/* Botón reabrir subnav */}
             {activeModule && !subNavOpen && (
               <button
                 onClick={() => setSubNavOpen(true)}
@@ -120,13 +109,12 @@ export default function ERPShell() {
           </>
         )}
 
-        {/* Contenido principal */}
         <main className="flex-1 overflow-y-auto p-3 md:p-4 lg:p-6 page-enter">
           <Outlet />
         </main>
 
       </div>
-       <UpdateBanner />
+      <UpdateBanner />
     </div>
   )
 }

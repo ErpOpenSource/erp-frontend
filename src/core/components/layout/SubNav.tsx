@@ -1,7 +1,7 @@
 import { usePreferencesStore } from '@/store/preferences.store'
 import { useAuthStore } from '@/store/auth.store'
 import { useTabsStore } from '@/store/tabs.store'
-import { mockSchemas } from './mockSchemas'
+import { useModuleSchema } from '@/core/hooks/useModuleSchema'
 import { moduleColorMap } from './moduleIconMap'
 import type { NavItem } from '@/core/types/module.types'
 import { Star, StarOff, ChevronLeft } from 'lucide-react'
@@ -19,7 +19,7 @@ export default function SubNav({ module, open, onToggle }: Props) {
   const hasPermission = useAuthStore((s) => s.hasPermission)
   const { getViewPreference, setViewPreference } = usePreferencesStore()
 
-  const schema = mockSchemas[module]
+  const { data: schema, isLoading } = useModuleSchema(module)
   const color = moduleColorMap[module] ?? '#6b7280'
 
   const favorites: string[] = (getViewPreference('_global', 'favorites')?.meta?.list as string[]) ?? []

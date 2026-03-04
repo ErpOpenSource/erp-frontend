@@ -80,3 +80,10 @@ export interface WidgetDef {
 export interface DashboardSchema {
   widgets: WidgetDef[]
 }
+
+export interface PreferencesDto {
+  theme: 'light' | 'dark' | 'system'
+  language: string
+  sidebarCollapsed: boolean
+  modulePrefs: Record<string, unknown>
+}

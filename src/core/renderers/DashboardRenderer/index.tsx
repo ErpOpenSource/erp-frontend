@@ -6,7 +6,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts'
 import * as LucideIcons from 'lucide-react'
-import { TrendingUp, TrendingDown, Loader2, AlertCircle } from 'lucide-react'
+import { TrendingUp, TrendingDown, Loader2, WifiOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -35,19 +35,20 @@ export default function DashboardRenderer({ dashboard }: Props) {
 }
 
 function WidgetRenderer({ widget }: { widget: WidgetDef }) {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['widget', widget.id, widget.endpoint],
     queryFn: async () => {
-      try {
-        const { data } = await client.get(widget.endpoint)
-        return data
-      } catch {
-        return getMockData(widget)
-      }
+      // Sin try/catch — React Query gestiona el estado de error correctamente
+      const { data } = await client.get(widget.endpoint)
+      return data
     },
-    refetchInterval: 1000 * 60, // refresca cada minuto
-    retry: false,
+    refetchInterval: 1000 * 60,
+    retry: 1,
   })
+
+  // Fallback a mock SOLO cuando hay error confirmado por React Query
+  const displayData = isError ? getMockData(widget) : data
+  const isMock = isError
 
   if (isLoading) {
     return (
@@ -58,21 +59,31 @@ function WidgetRenderer({ widget }: { widget: WidgetDef }) {
   }
 
   switch (widget.type) {
-    case 'kpi':       return <KPIWidget widget={widget} data={data} />
-    case 'chart-line': return <LineChartWidget widget={widget} data={data} />
-    case 'chart-bar':  return <BarChartWidget widget={widget} data={data} />
-    case 'chart-donut': return <DonutChartWidget widget={widget} data={data} />
-    default:          return null
+    case 'kpi':         return <KPIWidget widget={widget} data={displayData} isMock={isMock} />
+    case 'chart-line':  return <LineChartWidget widget={widget} data={displayData} isMock={isMock} />
+    case 'chart-bar':   return <BarChartWidget widget={widget} data={displayData} isMock={isMock} />
+    case 'chart-donut': return <DonutChartWidget widget={widget} data={displayData} isMock={isMock} />
+    default:            return null
   }
 }
 
+// ── Badge de datos de demo ─────────────────────────────────
+function MockBadge() {
+  return (
+    <span className="flex items-center gap-1 text-[10px] font-medium text-amber-500 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded-full">
+      <WifiOff size={9} />
+      Sin datos
+    </span>
+  )
+}
+
 // ── KPI Card ──────────────────────────────────────────────
-function KPIWidget({ widget, data }: { widget: WidgetDef; data: any }) {
+function KPIWidget({ widget, data, isMock }: { widget: WidgetDef; data: any; isMock: boolean }) {
   const Icon = getIcon(widget.icon ?? 'bar-chart-2')
   const value = data?.value ?? 0
   const trend = data?.trend as 'up' | 'down' | undefined
   const delta = data?.delta as string | undefined
-  const prev = data?.previousLabel as string | undefined
+  const prev  = data?.previousLabel as string | undefined
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-sm transition-shadow">
@@ -84,18 +95,18 @@ function KPIWidget({ widget, data }: { widget: WidgetDef; data: any }) {
           <Icon size={16} style={{ color: widget.color }} />
         </div>
 
-        {trend && delta && (
-          <span className={cn(
-            'flex items-center gap-0.5 text-xs font-medium',
-            trend === 'up' ? 'text-emerald-500' : 'text-red-400'
-          )}>
-            {trend === 'up'
-              ? <TrendingUp size={12} />
-              : <TrendingDown size={12} />
-            }
-            {delta}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {isMock && <MockBadge />}
+          {!isMock && trend && delta && (
+            <span className={cn(
+              'flex items-center gap-0.5 text-xs font-medium',
+              trend === 'up' ? 'text-emerald-500' : 'text-red-400'
+            )}>
+              {trend === 'up' ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+              {delta}
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="mt-3">
@@ -110,26 +121,20 @@ function KPIWidget({ widget, data }: { widget: WidgetDef; data: any }) {
 }
 
 // ── Line Chart ────────────────────────────────────────────
-function LineChartWidget({ widget, data }: { widget: WidgetDef; data: any }) {
+function LineChartWidget({ widget, data, isMock }: { widget: WidgetDef; data: any; isMock: boolean }) {
   const series = data?.series ?? []
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-4">
-      <p className="text-sm font-medium text-gray-700 mb-4">{widget.label}</p>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm font-medium text-gray-700">{widget.label}</p>
+        {isMock && <MockBadge />}
+      </div>
       <ResponsiveContainer width="100%" height={200}>
         <LineChart data={series} margin={{ top: 0, right: 8, bottom: 0, left: -20 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-          <XAxis
-            dataKey="label"
-            tick={{ fontSize: 11, fill: '#9ca3af' }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <YAxis
-            tick={{ fontSize: 11, fill: '#9ca3af' }}
-            axisLine={false}
-            tickLine={false}
-          />
+          <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
           <Tooltip
             contentStyle={{
               border: '1px solid #f3f4f6',
@@ -153,26 +158,20 @@ function LineChartWidget({ widget, data }: { widget: WidgetDef; data: any }) {
 }
 
 // ── Bar Chart ─────────────────────────────────────────────
-function BarChartWidget({ widget, data }: { widget: WidgetDef; data: any }) {
+function BarChartWidget({ widget, data, isMock }: { widget: WidgetDef; data: any; isMock: boolean }) {
   const series = data?.series ?? []
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-4">
-      <p className="text-sm font-medium text-gray-700 mb-4">{widget.label}</p>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm font-medium text-gray-700">{widget.label}</p>
+        {isMock && <MockBadge />}
+      </div>
       <ResponsiveContainer width="100%" height={200}>
         <BarChart data={series} margin={{ top: 0, right: 8, bottom: 0, left: -20 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-          <XAxis
-            dataKey="label"
-            tick={{ fontSize: 11, fill: '#9ca3af' }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <YAxis
-            tick={{ fontSize: 11, fill: '#9ca3af' }}
-            axisLine={false}
-            tickLine={false}
-          />
+          <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
           <Tooltip
             contentStyle={{
               border: '1px solid #f3f4f6',
@@ -182,11 +181,7 @@ function BarChartWidget({ widget, data }: { widget: WidgetDef; data: any }) {
             }}
             cursor={{ fill: `${widget.color}10` }}
           />
-          <Bar
-            dataKey="value"
-            fill={widget.color ?? '#10b981'}
-            radius={[4, 4, 0, 0]}
-          />
+          <Bar dataKey="value" fill={widget.color ?? '#10b981'} radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -196,12 +191,15 @@ function BarChartWidget({ widget, data }: { widget: WidgetDef; data: any }) {
 // ── Donut Chart ───────────────────────────────────────────
 const DONUT_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#6b7280']
 
-function DonutChartWidget({ widget, data }: { widget: WidgetDef; data: any }) {
+function DonutChartWidget({ widget, data, isMock }: { widget: WidgetDef; data: any; isMock: boolean }) {
   const series = data?.series ?? []
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-4">
-      <p className="text-sm font-medium text-gray-700 mb-2">{widget.label}</p>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-sm font-medium text-gray-700">{widget.label}</p>
+        {isMock && <MockBadge />}
+      </div>
       <ResponsiveContainer width="100%" height={200}>
         <PieChart>
           <Pie
@@ -214,10 +212,7 @@ function DonutChartWidget({ widget, data }: { widget: WidgetDef; data: any }) {
             dataKey="value"
           >
             {series.map((_: any, index: number) => (
-              <Cell
-                key={`cell-${index}`}
-                fill={DONUT_COLORS[index % DONUT_COLORS.length]}
-              />
+              <Cell key={`cell-${index}`} fill={DONUT_COLORS[index % DONUT_COLORS.length]} />
             ))}
           </Pie>
           <Tooltip
@@ -250,28 +245,16 @@ function getMockData(widget: WidgetDef) {
   switch (widget.type) {
     case 'kpi':
       return {
-        value: Math.floor(Math.random() * 1000),
-        trend: Math.random() > 0.5 ? 'up' : 'down',
-        delta: `${Math.floor(Math.random() * 20)}%`,
-        previousLabel: 'vs semana anterior',
+        value: 0,
+        trend: undefined,
+        delta: undefined,
+        previousLabel: 'Sin conexión con el servidor',
       }
     case 'chart-line':
     case 'chart-bar':
-      return {
-        series: Array.from({ length: 12 }, (_, i) => ({
-          label: `${i + 1}`,
-          value: Math.floor(Math.random() * 500) + 100,
-        })),
-      }
+      return { series: [] }
     case 'chart-donut':
-      return {
-        series: [
-          { name: 'Completado', value: 45 },
-          { name: 'Pendiente', value: 30 },
-          { name: 'Cancelado', value: 15 },
-          { name: 'En proceso', value: 10 },
-        ],
-      }
+      return { series: [] }
     default:
       return {}
   }
