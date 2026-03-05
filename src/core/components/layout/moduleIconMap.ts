@@ -32,7 +32,7 @@ export const moduleColorMap: Record<string, string> = {
   ACCOUNTING: '#84cc16',
   CRM:        '#ec4899',
   PURCHASING: '#f97316',
-  ADMIN:      '#6b7280',
+  ADMIN:      '#7c3aed',
   DASHBOARD:  '#6366f1',
   SETTINGS:   '#6b7280',
 }

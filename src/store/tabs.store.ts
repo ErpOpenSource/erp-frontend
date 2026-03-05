@@ -29,12 +29,29 @@ export const useTabsStore = create<TabsState>()(
 
       openTab: (tab) => {
         const { tabs } = get()
-        const existing = tabs.find((t) => t.path === tab.path)
-        if (existing) {
-          set({ activeTabId: existing.id })
-          router.navigate({ to: existing.path })
+
+        // Misma ruta → solo activar
+        const exactMatch = tabs.find((t) => t.path === tab.path)
+        if (exactMatch) {
+          set({ activeTabId: exactMatch.id })
+          router.navigate({ to: exactMatch.path })
           return
         }
+
+        // Mismo módulo → actualizar la tab existente (una tab por módulo)
+        const moduleMatch = tabs.find((t) => t.moduleId === tab.moduleId)
+        if (moduleMatch) {
+          set({
+            tabs: tabs.map((t) =>
+              t.id === moduleMatch.id ? { ...t, path: tab.path, label: tab.label } : t
+            ),
+            activeTabId: moduleMatch.id,
+          })
+          router.navigate({ to: tab.path })
+          return
+        }
+
+        // Módulo nuevo → crear tab
         const id = crypto.randomUUID()
         set({ tabs: [...tabs, { ...tab, id }], activeTabId: id })
         router.navigate({ to: tab.path })

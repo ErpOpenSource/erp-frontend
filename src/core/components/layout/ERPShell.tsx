@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Outlet } from '@tanstack/react-router'
+import { Outlet, useRouterState } from '@tanstack/react-router'
 import ModuleSidebar from './ModuleSidebar'
 import SubNav from './SubNav'
 import Topbar from './Topbar'
@@ -9,6 +9,15 @@ import { useRestoreState } from '@/core/hooks/useRestoreState'
 import { useTokenRefresh } from '@/core/hooks/useTokenRefresh'
 import UpdateBanner from '../UpdateBanner'
 import { router } from '@/router'
+
+function AnimatedOutlet() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  return (
+    <div key={pathname} className="page-enter min-h-full">
+      <Outlet />
+    </div>
+  )
+}
 
 function useBreakpoint() {
   const [breakpoint, setBreakpoint] = useState<'mobile' | 'tablet' | 'desktop'>('desktop')
@@ -59,9 +68,25 @@ export default function ERPShell() {
 
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-gray-50">
-      <Topbar onMenuClick={() => setMobileSidebarOpen(true)} />
-
-      {breakpoint !== 'mobile' && <TabBar />}
+      {breakpoint === 'mobile' ? (
+        <Topbar
+          onMenuClick={() => setMobileSidebarOpen(true)}
+          activeModule={activeModule}
+          onModuleChange={handleModuleChange}
+        />
+      ) : (
+        <div className="z-30 flex-shrink-0 border-b border-gray-200/80 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/80 shadow-[0_1px_0_rgba(15,23,42,0.04)]">
+          <Topbar
+            onMenuClick={() => setMobileSidebarOpen(true)}
+            activeModule={activeModule}
+            onModuleChange={handleModuleChange}
+            className="border-b border-gray-100/80 bg-transparent"
+          />
+          <div className="h-11 px-2 md:px-3 flex items-center">
+            <TabBar className="h-9 flex-1 rounded-xl border border-gray-200/80 bg-gray-50/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]" />
+          </div>
+        </div>
+      )}
 
       <div className="relative flex flex-1 overflow-hidden">
 
@@ -88,8 +113,6 @@ export default function ERPShell() {
 
         {breakpoint !== 'mobile' && (
           <>
-            <ModuleSidebar activeModule={activeModule} onModuleChange={handleModuleChange} />
-
             {activeModule && (
               <SubNav
                 module={activeModule}
@@ -101,7 +124,7 @@ export default function ERPShell() {
             {activeModule && !subNavOpen && (
               <button
                 onClick={() => setSubNavOpen(true)}
-                className="absolute left-16 top-1/2 -translate-y-1/2 z-20 w-4 h-8 bg-white border border-gray-200 rounded-r-md flex items-center justify-center hover:bg-gray-50 transition-colors"
+                className="absolute left-0 top-1/2 -translate-y-1/2 z-20 w-4 h-8 bg-white border border-gray-200 rounded-r-md flex items-center justify-center hover:bg-gray-50 transition-colors"
               >
                 <ChevronRight size={12} className="text-gray-400" />
               </button>
@@ -109,8 +132,8 @@ export default function ERPShell() {
           </>
         )}
 
-        <main className="flex-1 overflow-y-auto p-3 md:p-4 lg:p-6 page-enter">
-          <Outlet />
+        <main className="flex-1 overflow-y-auto p-3 md:p-4 lg:p-6">
+          <AnimatedOutlet />
         </main>
 
       </div>

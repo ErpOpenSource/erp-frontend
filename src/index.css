@@ -109,3 +109,29 @@
     @apply bg-primary/20 text-foreground;
   }
 }
+
+/* ── Animaciones de transición de página ──────────────────────────────────── */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-enter {
+  animation: page-enter 0.18s ease-out;
+}
+
+/* ── SubNav: transición de panel lateral ─────────────────────────────────── */
+@keyframes subnav-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.subnav-content-enter {
+  animation: subnav-fade-in 0.15s ease-out;
+}

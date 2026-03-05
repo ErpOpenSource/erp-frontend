@@ -4,9 +4,15 @@ import Login from '@/pages/Login'
 import Dashboard from '@/pages/Dashboard'
 import ERPShell from '@/core/components/layout/ERPShell'
 import ModulePage from '@/core/renderers/ModuleLoader/ModulePage'
-import ProfilePage  from '@/pages/settings/ProfilePage'
-import UsersPage    from '@/pages/settings/UsersPage'
-import SessionsPage from '@/pages/settings/SessionsPage'
+import ProfilePage       from '@/pages/settings/ProfilePage'
+import SessionsPage      from '@/pages/settings/SessionsPage'
+import LicensesPage      from '@/pages/settings/LicensesPage'
+import AdminUsersPage    from '@/pages/admin/AdminUsersPage'
+import DepartmentsPage   from '@/pages/admin/DepartmentsPage'
+import RolesAdminPage    from '@/pages/admin/RolesAdminPage'
+import ModulesAdminPage  from '@/pages/admin/ModulesAdminPage'
+import ViewsAdminPage    from '@/pages/admin/ViewsAdminPage'
+import FormsAdminPage    from '@/pages/admin/FormsAdminPage'
 
 const rootRoute = createRootRoute()
 
@@ -78,7 +84,7 @@ const settingsProfileRoute = createRoute({
 const settingsUsersRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: '/settings/users',
-  component: UsersPage,
+  component: () => <ModulePage moduleId="SETTINGS" viewId="users" />,
 })
 
 const settingsSessionsRoute = createRoute({
@@ -87,6 +93,26 @@ const settingsSessionsRoute = createRoute({
   component: SessionsPage,
 })
 
+const settingsLicensesRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/settings/licenses',
+  component: LicensesPage,
+})
+
+// ── Rutas de Admin — solo para ROLE_ADMIN ────────────────────────────────────
+const adminRoutes = [
+  { path: '/admin/users',       component: AdminUsersPage },
+  { path: '/admin/sessions',    component: SessionsPage },
+  { path: '/admin/licenses',    component: LicensesPage },
+  { path: '/admin/departments', component: DepartmentsPage },
+  { path: '/admin/roles',       component: RolesAdminPage },
+  { path: '/admin/modules',     component: ModulesAdminPage },
+  { path: '/admin/views',       component: ViewsAdminPage },
+  { path: '/admin/forms',       component: FormsAdminPage },
+].map(({ path, component }) =>
+  createRoute({ getParentRoute: () => shellRoute, path, component })
+)
+
 // ── Árbol de rutas ────────────────────────────────────────────────────────────
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -94,9 +120,11 @@ const routeTree = rootRoute.addChildren([
   shellRoute.addChildren([
     dashboardRoute,
     ...moduleRoutes,
+    ...adminRoutes,
     settingsProfileRoute,
     settingsUsersRoute,
     settingsSessionsRoute,
+    settingsLicensesRoute,
   ]),
 ])
 

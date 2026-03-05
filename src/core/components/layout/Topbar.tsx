@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Menu, Search, ChevronRight, LogOut, User, Settings,
+  Menu, Search, LogOut, User, Settings as SettingsIcon,
   Moon, Sun, Monitor, TrendingUp, TrendingDown, Loader2,
+  LayoutDashboard,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/auth.store'
 import { usePreferencesStore } from '@/store/preferences.store'
@@ -19,9 +20,13 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 import { useRouterState } from '@tanstack/react-router'
 import type { WidgetDef } from '@/core/types/module.types'
+import { moduleIconMap, moduleColorMap } from './moduleIconMap'
 
 interface Props {
   onMenuClick?: () => void
+  className?: string
+  activeModule?: string | null
+  onModuleChange?: (module: string) => void
 }
 
 interface SearchCandidate {
@@ -33,8 +38,14 @@ interface SearchCandidate {
   score: number
 }
 
-export default function Topbar({ onMenuClick }: Props) {
+export default function Topbar({
+  onMenuClick,
+  className,
+  activeModule,
+  onModuleChange,
+}: Props) {
   const { user, logout, hasPermission } = useAuthStore()
+  const userModules                     = useAuthStore((s) => s.user?.modules ?? [])
   const { theme, setTheme }             = usePreferencesStore()
   const openTab                         = useTabsStore((s) => s.openTab)
   const pathname                        = useRouterState({ select: (s) => s.location.pathname })
@@ -52,9 +63,14 @@ export default function Topbar({ onMenuClick }: Props) {
   const normalize = (v: string) =>
     v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
 
-  // ── Candidatos de búsqueda desde backend ──────────────────────────────────
+  // ── Módulos de navegación ──────────────────────────────────────────────────
   const { data: schemas = [] } = useAllModuleSchemas()
 
+  const middleModules = schemas.filter(
+    (s) => s.id !== 'DASHBOARD' && s.id !== 'SETTINGS' && userModules.includes(s.id)
+  )
+
+  // ── Candidatos de búsqueda ────────────────────────────────────────────────
   const allCandidates = useMemo<SearchCandidate[]>(
     () => schemas.flatMap((schema) =>
       schema.navItems
@@ -64,7 +80,7 @@ export default function Topbar({ onMenuClick }: Props) {
           label: item.label, id: item.id, path: item.path, score: 0,
         }))
     ),
-    [schemas, hasPermission]  // ✅ FIX: schemas en deps — antes no estaba y nunca se actualizaba
+    [schemas, hasPermission]
   )
 
   const suggestions = useMemo<SearchCandidate[]>(() => {
@@ -124,30 +140,75 @@ export default function Topbar({ onMenuClick }: Props) {
   }
 
   return (
-    <header className="h-14 bg-white border-b border-gray-100 flex items-center px-3 md:px-4 gap-2 flex-shrink-0 z-30">
+    <header className={cn(
+      'h-14 bg-white border-b border-gray-100 flex items-stretch flex-shrink-0 z-30',
+      className
+    )}>
 
-      <button onClick={onMenuClick} className="md:hidden w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
+      {/* Hamburger (mobile) */}
+      <button
+        onClick={onMenuClick}
+        className="md:hidden self-center ml-3 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 transition-colors flex-shrink-0"
+      >
         <Menu size={18} />
       </button>
 
-      <div className="flex items-center gap-2 flex-shrink-0">
-        <div className="w-10 h-10 rounded-lg overflow-hidden">
+      {/* Logo */}
+      <div className="flex items-center flex-shrink-0 px-3">
+        <div className="w-8 h-8 rounded-lg overflow-hidden">
           <img src="/logo-wuan.png" alt="Logo" className="w-full h-full object-contain" />
         </div>
       </div>
 
-      <div className="hidden md:block w-px h-5 bg-gray-200 mx-1" />
-      <Breadcrumbs />
+      {/* ── Navegación de módulos (tablet+) ── */}
+      {onModuleChange && (
+        <nav className="hidden md:flex items-stretch overflow-x-auto scrollbar-none">
+          <div className="w-px bg-gray-100 my-3 flex-shrink-0" />
+
+          <ModuleNavItem
+            id="DASHBOARD"
+            label="Inicio"
+            active={activeModule === 'DASHBOARD'}
+            onClick={() => onModuleChange('DASHBOARD')}
+          />
+
+          {middleModules.length > 0 && (
+            <div className="w-px bg-gray-100 my-3 mx-0.5 flex-shrink-0" />
+          )}
+
+          {middleModules.map((s) => (
+            <ModuleNavItem
+              key={s.id}
+              id={s.id}
+              label={s.label}
+              active={activeModule === s.id}
+              onClick={() => onModuleChange(s.id)}
+            />
+          ))}
+
+          <div className="w-px bg-gray-100 my-3 mx-0.5 flex-shrink-0" />
+
+          <ModuleNavItem
+            id="SETTINGS"
+            label="Ajustes"
+            active={activeModule === 'SETTINGS'}
+            onClick={() => onModuleChange('SETTINGS')}
+          />
+        </nav>
+      )}
+
       <div className="flex-1" />
 
-      {/* ✅ KPIs reales desde el schema DASHBOARD — sin mockKPIs */}
-      <div className="hidden lg:flex items-center gap-1 mr-2">
+      {/* KPIs */}
+      <div className="hidden xl:flex items-center gap-1 px-2">
         <TopbarKPIs />
       </div>
-      <div className="hidden lg:block w-px h-5 bg-gray-200 mx-1" />
+      <div className="hidden xl:flex items-center mx-1">
+        <div className="w-px h-5 bg-gray-200" />
+      </div>
 
       {/* Búsqueda */}
-      <div ref={searchRef} className="relative">
+      <div ref={searchRef} className="relative flex items-center px-1">
         {searchOpen ? (
           <input
             ref={inputRef}
@@ -156,18 +217,21 @@ export default function Topbar({ onMenuClick }: Props) {
             onChange={(e) => { setSearchQuery(pathname, e.target.value); setActiveSuggestion(0) }}
             onKeyDown={handleKeyDown}
             placeholder="Buscar en el ERP..."
-            className="w-48 md:w-64 h-8 pl-8 pr-3 text-sm bg-gray-100 rounded-lg border-0 outline-none focus:ring-2 focus:ring-gray-200 transition-all"
+            className="w-44 lg:w-56 xl:w-64 h-8 pl-8 pr-3 text-sm bg-gray-100 rounded-lg border-0 outline-none focus:ring-2 focus:ring-gray-200 transition-all"
           />
         ) : (
-          <button onClick={() => setSearchOpen(true)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+          >
             <Search size={16} />
           </button>
         )}
 
         {searchOpen && (
           <>
-            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-            <div className="absolute right-0 top-full mt-2 w-[22rem] max-w-[calc(100vw-1.5rem)] rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden">
+            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <div className="absolute right-0 top-full mt-2 w-[22rem] max-w-[calc(100vw-1.5rem)] rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden z-50">
               <div className="px-3 py-2 text-[11px] text-gray-400 border-b border-gray-100 flex items-center justify-between">
                 <span>Resultados de navegación</span>
                 <span>↑↓ Enter</span>
@@ -184,7 +248,10 @@ export default function Topbar({ onMenuClick }: Props) {
                         type="button"
                         onMouseEnter={() => setActiveSuggestion(i)}
                         onMouseDown={(e) => { e.preventDefault(); openCandidate(item) }}
-                        className={cn('w-full text-left px-3 py-2.5 transition-colors', i === activeSuggestion ? 'bg-gray-100' : 'hover:bg-gray-50')}
+                        className={cn(
+                          'w-full text-left px-3 py-2.5 transition-colors',
+                          i === activeSuggestion ? 'bg-gray-100' : 'hover:bg-gray-50'
+                        )}
                       >
                         <div className="flex items-center justify-between gap-3">
                           <div className="min-w-0">
@@ -195,7 +262,9 @@ export default function Topbar({ onMenuClick }: Props) {
                               {item.moduleLabel} · {item.path}
                             </p>
                           </div>
-                          <span className="text-[10px] uppercase tracking-wide text-gray-300">{item.moduleId}</span>
+                          <span className="text-[10px] uppercase tracking-wide text-gray-300 flex-shrink-0">
+                            {item.moduleId}
+                          </span>
                         </div>
                       </button>
                     </li>
@@ -207,55 +276,95 @@ export default function Topbar({ onMenuClick }: Props) {
         )}
       </div>
 
-      {/* Avatar */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-lg hover:bg-gray-100 transition-colors outline-none">
-            <Avatar className="w-7 h-7">
-              <AvatarFallback className="bg-gray-900 text-white text-xs font-semibold">{initials}</AvatarFallback>
-            </Avatar>
-            <div className="hidden md:block text-left">
-              <p className="text-xs font-semibold text-gray-800 leading-none">{user?.username}</p>
-              <p className="text-xs text-gray-400 leading-none mt-0.5">{user?.roles?.[0]}</p>
-            </div>
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuLabel>
-            <div className="flex flex-col">
-              <span className="font-semibold">{user?.username}</span>
-              <span className="text-xs text-gray-400 font-normal">{user?.departments?.join(', ')}</span>
-            </div>
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem><User size={14} className="mr-2" />Mi perfil</DropdownMenuItem>
-          <DropdownMenuItem><Settings size={14} className="mr-2" />Preferencias</DropdownMenuItem>
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger><Monitor size={14} className="mr-2" />Tema</DropdownMenuSubTrigger>
-            <DropdownMenuSubContent>
-              <DropdownMenuItem onClick={() => setTheme('light')}>
-                <Sun size={14} className="mr-2" />Claro {theme === 'light' && <span className="ml-auto">✓</span>}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setTheme('dark')}>
-                <Moon size={14} className="mr-2" />Oscuro {theme === 'dark' && <span className="ml-auto">✓</span>}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setTheme('system')}>
-                <Monitor size={14} className="mr-2" />Sistema {theme === 'system' && <span className="ml-auto">✓</span>}
-              </DropdownMenuItem>
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleLogout} className="text-red-500 focus:text-red-500 focus:bg-red-50">
-            <LogOut size={14} className="mr-2" />Cerrar sesión
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {/* Avatar / perfil */}
+      <div className="flex items-center px-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-lg hover:bg-gray-100 transition-colors outline-none">
+              <Avatar className="w-7 h-7">
+                <AvatarFallback className="bg-gray-900 text-white text-xs font-semibold">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="hidden md:block text-left">
+                <p className="text-xs font-semibold text-gray-800 leading-none">{user?.username}</p>
+                <p className="text-xs text-gray-400 leading-none mt-0.5">{user?.roles?.[0]}</p>
+              </div>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>
+              <div className="flex flex-col">
+                <span className="font-semibold">{user?.username}</span>
+                <span className="text-xs text-gray-400 font-normal">{user?.departments?.join(', ')}</span>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem><User size={14} className="mr-2" />Mi perfil</DropdownMenuItem>
+            <DropdownMenuItem><SettingsIcon size={14} className="mr-2" />Preferencias</DropdownMenuItem>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger><Monitor size={14} className="mr-2" />Tema</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuItem onClick={() => setTheme('light')}>
+                  <Sun size={14} className="mr-2" />Claro {theme === 'light' && <span className="ml-auto">✓</span>}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme('dark')}>
+                  <Moon size={14} className="mr-2" />Oscuro {theme === 'dark' && <span className="ml-auto">✓</span>}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme('system')}>
+                  <Monitor size={14} className="mr-2" />Sistema {theme === 'system' && <span className="ml-auto">✓</span>}
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={handleLogout}
+              className="text-red-500 focus:text-red-500 focus:bg-red-50"
+            >
+              <LogOut size={14} className="mr-2" />Cerrar sesión
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </header>
   )
 }
 
+// ── Botón de módulo (tab de navegación) ───────────────────────────────────────
+function ModuleNavItem({ id, label, active, onClick }: {
+  id: string
+  label: string
+  active: boolean
+  onClick: () => void
+}) {
+  const Icon  = moduleIconMap[id] ?? LayoutDashboard
+  const color = moduleColorMap[id] ?? '#6b7280'
+
+  return (
+    <button
+      onClick={onClick}
+      title={label}
+      className={cn(
+        'relative flex items-center gap-1.5 px-3 h-full text-sm font-medium transition-all duration-150 flex-shrink-0 outline-none',
+        active
+          ? 'text-gray-900'
+          : 'text-gray-400 hover:text-gray-700 hover:bg-gray-50'
+      )}
+      style={active ? { color } : {}}
+    >
+      <Icon size={15} />
+      <span className="hidden lg:block">{label}</span>
+      {active && (
+        <span
+          className="absolute bottom-0 inset-x-2 h-[2px] rounded-full"
+          style={{ backgroundColor: color }}
+        />
+      )}
+    </button>
+  )
+}
+
 // ── KPIs reales desde DASHBOARD ───────────────────────────────────────────────
-// Carga los primeros 3 widgets KPI del schema DASHBOARD y hace fetch de cada uno
 function TopbarKPIs() {
   const { data: schema } = useModuleSchema('DASHBOARD')
   const kpiWidgets = useMemo(
@@ -285,7 +394,6 @@ function TopbarKPIItem({ widget }: { widget: WidgetDef }) {
     )
   }
 
-  // Sin datos → no renderiza (no muestra datos falsos)
   if (!data) return null
 
   const value = data?.value ?? '—'
@@ -301,7 +409,8 @@ function TopbarKPIItem({ widget }: { widget: WidgetDef }) {
         </p>
       </div>
       {trend && delta && (
-        <span className={cn('flex items-center gap-0.5 text-xs font-medium',
+        <span className={cn(
+          'flex items-center gap-0.5 text-xs font-medium',
           trend === 'up' ? 'text-emerald-500' : 'text-red-400'
         )}>
           {trend === 'up' ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
@@ -324,26 +433,5 @@ function highlightMatch(text: string, query: string) {
       <mark className="bg-amber-100 text-amber-900 rounded px-0.5">{text.slice(idx, idx + q.length)}</mark>
       {text.slice(idx + q.length)}
     </>
-  )
-}
-
-function Breadcrumbs() {
-  const pathname = useRouterState({ select: (s) => s.location.pathname })
-  const segments = pathname.split('/').filter(Boolean).map((seg) => ({
-    label: seg.charAt(0).toUpperCase() + seg.slice(1).replace(/-/g, ' '),
-    path: seg,
-  }))
-  if (segments.length === 0) return null
-  return (
-    <nav className="hidden md:flex items-center gap-1 text-sm">
-      {segments.map((seg, i) => (
-        <div key={`${seg.path}-${i}`} className="flex items-center gap-1">
-          {i > 0 && <ChevronRight size={13} className="text-gray-300" />}
-          <span className={cn(i === segments.length - 1 ? 'text-gray-800 font-medium' : 'text-gray-400 hover:text-gray-600 cursor-pointer transition-colors')}>
-            {seg.label}
-          </span>
-        </div>
-      ))}
-    </nav>
   )
 }

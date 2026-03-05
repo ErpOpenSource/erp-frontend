@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { usePreferencesStore } from '@/store/preferences.store'
 import { useAuthStore } from '@/store/auth.store'
 import { useTabsStore } from '@/store/tabs.store'
@@ -20,6 +21,12 @@ export default function SubNav({ module, open, onToggle }: Props) {
   const { getViewPreference, setViewPreference } = usePreferencesStore()
 
   const { data: schema, isLoading } = useModuleSchema(module)
+
+  // Mantener el último schema válido para evitar parpadeo al cambiar módulo
+  const lastSchema = useRef(schema)
+  if (schema) lastSchema.current = schema
+  const displaySchema = lastSchema.current
+
   const color = moduleColorMap[module] ?? '#6b7280'
 
   const favorites: string[] = (getViewPreference('_global', 'favorites')?.meta?.list as string[]) ?? []
@@ -31,31 +38,36 @@ export default function SubNav({ module, open, onToggle }: Props) {
     setViewPreference('_global', 'favorites', { meta: { list: updated } })
   }
 
-  const visibleItems = schema?.navItems.filter((item) =>
+  const visibleItems = displaySchema?.navItems.filter((item) =>
     item.permission ? hasPermission(item.permission) : true
   ) ?? []
 
   const favoriteItems = visibleItems.filter((item) => favorites.includes(item.id))
   const regularItems = visibleItems.filter((item) => !favorites.includes(item.id))
 
-  if (!schema) return null
+  if (!displaySchema) return null
 
   return (
     <aside
       className={cn(
-        'bg-white border-r border-gray-100 flex flex-col flex-shrink-0 transition-all duration-200 overflow-hidden',
-        open ? 'w-56' : 'w-0'
+        'bg-white border-r border-gray-100 flex flex-col flex-shrink-0 overflow-hidden',
+        'transition-[width,opacity] duration-200 ease-in-out',
+        open ? 'w-56' : 'w-0',
+        isLoading ? 'opacity-60' : 'opacity-100'
       )}
     >
-      <div className="flex flex-col h-full min-w-56">
+      <div
+        key={displaySchema.id}
+        className="flex flex-col h-full min-w-56 subnav-content-enter"
+      >
 
         <div
           className="h-14 flex items-center justify-between px-4 border-b border-gray-100"
           style={{ borderBottomColor: `${color}30` }}
         >
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
-            <span className="text-sm font-semibold text-gray-800">{schema.label}</span>
+            <span className="w-2 h-2 rounded-full transition-colors duration-200" style={{ backgroundColor: color }} />
+            <span className="text-sm font-semibold text-gray-800">{displaySchema.label}</span>
           </div>
           <button
             onClick={onToggle}
@@ -77,7 +89,7 @@ export default function SubNav({ module, open, onToggle }: Props) {
                   key={item.id}
                   item={item}
                   color={color}
-                  moduleId={schema.id}
+                  moduleId={displaySchema.id}
                   isFavorite
                   onToggleFavorite={() => toggleFavorite(item.id)}
                 />
@@ -88,7 +100,7 @@ export default function SubNav({ module, open, onToggle }: Props) {
           <div>
             {favoriteItems.length > 0 && (
               <p className="text-xs font-medium text-gray-400 px-2 mb-1 uppercase tracking-wider">
-                {schema.label}
+                {displaySchema.label}
               </p>
             )}
             {regularItems.map((item) => (
@@ -96,7 +108,7 @@ export default function SubNav({ module, open, onToggle }: Props) {
                 key={item.id}
                 item={item}
                 color={color}
-                moduleId={schema.id}
+                moduleId={displaySchema.id}
                 isFavorite={false}
                 onToggleFavorite={() => toggleFavorite(item.id)}
               />
